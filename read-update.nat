@@ -1,1 +1,180 @@
-
+******************************************************************** 
+* FORMACIÓN SEGUNDA TANDA 2024.                         
+* AUTOR: SERGIO GRACIA CORREIA.                        
+* ------------------------------------------------------------------ 
+* DESCRIPCIóN:                                                       
+* - USA LOS MAPAS 'SGCM0108'Y 'SGCM108B'.                            
+* - SELECCIONAR MODO ASCENDENTE O DESCENDENTE PARA EL READ.          
+* - SI PRESIONA ENTER SIN NADA SELECIONADO MUESTRA LOS 5 PRIMEROS RESULTADOS DE LA BBDD.   
+* - SI PRESIONA ENTER CON ALGUNO SELECCIONADO VA AL SEGUNDO MAPA (INTERFAZ VISUAL).     
+* - SACAR LOS 3 VALORES DEL CAMPO SELECCIONADO EN EL SEGUNDO MAPA (INTERFAZ VISUAL).   
+* - PERMITIR AL USUARIO MODIFICAR Y ACTUALIZAR LOS DATOS.            
+*                                                                    
+* ------------------------------------------------------------------ 
+* NOTAS:                                                             
+* · USAMOS BACKOUT TRANSACTION PARA NO CONSOLIDAR LOS CAMBIOS (DATOS SENSIBLES).    
+* · WRITE DESPUÉS DEL UPDATE PARA COMPROBAR QUE FUNCIONA.            
+* · VERSIÓN DE PRUEBA CON UPDATE / BACK TRANSACTION                         
+*                                                                    
+******************************************************************** 
+DEFINE DATA                                                          
+LOCAL                                                    
+1 EMPRESA VIEW OF AOCUCOTU                               
+  2 CCOK (N13)                                           
+  2 GREC-CCO (N1)                                        
+  2 CCOA (A55)                                           
+  2 IPRC-CCO   (N1)                                      
+1 CCOK-TABLA (N13/5)                                     
+1 VAL-SALIDA                                             
+  2 S-CCOK (N13)                                         
+  2 S-GREC-CCO (N1)                                      
+  2 S-CCOA (A55)                                         
+  2 S-IPRC-CCO  (N1)                                     
+1 CV                                                     
+  2 CV-MODO (C)                                          
+  2 CV-SELECCION (C)                                     
+1 MODO (A1)                                              
+1 SELECCION (A1/5)                                       
+1 INDICE (N1)                                            
+1 CONTADOR (N1)                                          
+1 POSICION (I4)                                          
+1 ERRORTEXTO (A50)                                                  
+1 CONSOLIDACIONTXT (A50)                                            
+1 SECUENCIA (A1)                                                    
+END-DEFINE                                                          
+********************************************************************
+SET KEY PF3 PF4                                                     
+REP1. REPEAT                                                        
+  INPUT WITH TEXT ERRORTEXTO MARK POSICION USING MAP 'SGCM0108'     
+  DECIDE ON FIRST VALUE OF *PF-KEY                                  
+    VALUE 'PF3' ESCAPE BOTTOM(REP1.)                                
+    VALUE 'ENTR' PERFORM MANEJAR-MAPA1                              
+    VALUE 'PF4' PERFORM RESETEAR-TODO                               
+    NONE VALUE IGNORE                                               
+  END-DECIDE                                                        
+END-REPEAT                                                          
+********************************************************************
+DEFINE MANEJAR-MAPA1                                                
+********************************************************************
+RESET CCOK-TABLA(*) CV VAL-SALIDA INDICE ERRORTEXTO                 
+  CONTADOR POSICION                                                 
+DECIDE ON EVERY VALUE OF ERRORTEXTO                                    
+  VALUE ' '                                                            
+    IF MODO EQ 'A'                                                     
+      MOVE 'A' TO SECUENCIA                                            
+    END-IF                                                             
+    IF MODO EQ 'D'                                                     
+      MOVE 'D' TO SECUENCIA                                            
+    END-IF                                                             
+    IF MODO NE 'A' AND MODO NE 'D' AND MODO NE ' '                     
+      RESET SECUENCIA                                                  
+    END-IF                                                             
+* ---------------------------------------------                        
+* COMPROBAR SI MODO ES CORRECTO.                                       
+* ---------------------------------------------                        
+  VALUE ' '                                                            
+    IF SECUENCIA EQ ' '                                                
+      MOVE (AD=I) TO CV-MODO                                           
+      MOVE 'ERROR --> SELECCIONE A O D Y PRESIONE ENTER.' TO ERRORTEXTO
+      COMPUTE POSICION = POS(MODO)                                     
+      ESCAPE ROUTINE                                                   
+    END-IF                                                             
+* --------------------------------------------                         
+* MOSTRAR CCOKS SEGÚN MODO SELECCIONADO.                               
+* --------------------------------------------                         
+    MOVE 1 TO INDICE                                                   
+    RESET CV                                                           
+    RD1. READ (5) EMPRESA IN VARIABLE SECUENCIA SEQUENCE BY CCOK       
+      MOVE EMPRESA.CCOK TO CCOK-TABLA(INDICE)                          
+      ADD 1 TO INDICE                                                  
+    END-READ                                                           
+    COMPUTE POSICION = POS(SELECCION(1))                               
+* -------------------------------------------------------------------- 
+* SI SE MARCA CON VALOR NO 'X' SE DEVUELVE ERROR.                      
+* -------------------------------------------------------------------- 
+  VALUE ' '                                                            
+    FOR1. FOR INDICE = 1 TO *OCC(SELECCION)                            
+      IF SELECCION(INDICE) NE 'X' AND SELECCION(INDICE) NE ' '         
+        MOVE (AD=I) TO CV-SELECCION                                    
+        MOVE 'ERROR --> LETRA NO VÁLIDA. UTILICE X PARA MARCAR.'       
+          TO ERRORTEXTO                                                
+        COMPUTE POSICION = POS(SELECCION(INDICE))                   
+        RESET SELECCION(INDICE)                                     
+        ESCAPE BOTTOM(FOR1.)                                        
+      END-IF                                                        
+    END-FOR                                                         
+* ----------------------------------------------                    
+* COMPROBAR QUE SÓLO SE MARCA 1 CCOK.                               
+* ---------------------------------------------                     
+  VALUE ' '                                                         
+    FOR2. FOR INDICE 1 TO *OCC (SELECCION)                          
+      IF SELECCION(INDICE)  EQ 'X'                                  
+        ADD 1 TO CONTADOR                                           
+      END-IF                                                        
+    END-FOR                                                         
+    IF CONTADOR GT 1                                                
+      MOVE 'ERROR --> SÓLO PUEDES MARCAR UN CAMPO.' TO ERRORTEXTO   
+      MOVE (AD=I) TO CV-SELECCION                                   
+      COMPUTE POSICION = POS(SELECCION(1))                          
+      RESET SELECCION(*)                                            
+      ESCAPE ROUTINE                                                
+    END-IF                                                            
+* ------------------------------------------------------------------- 
+* SI HAY UNA CASILLA MARCADA CON X SE MUESTRA RESULTADO.              
+* ------------------------------------------------------------------- 
+    FOR3. FOR INDICE = 1 TO *OCC(SELECCION)                           
+      IF SELECCION (INDICE) EQ 'X'                                    
+        MOVE CCOK-TABLA (INDICE) TO S-CCOK                            
+        ESCAPE BOTTOM(FOR3.)                                          
+      END-IF                                                          
+    END-FOR                                                           
+    R3. READ(1) EMPRESA WITH CCOK = S-CCOK                            
+      IF CCOK = S-CCOK                                                
+        MOVE EMPRESA.CCOK TO S-CCOK                                   
+        MOVE EMPRESA.GREC-CCO TO S-GREC-CCO                           
+        MOVE EMPRESA.CCOA TO S-CCOA                                   
+        MOVE EMPRESA.IPRC-CCO TO S-IPRC-CCO                           
+        PERFORM MANEJAR-MAPA2                                         
+      END-IF                                                          
+    END-READ                                                          
+* ------------------------------------------------------------------  
+  NONE VALUE IGNORE                                                    
+END-DECIDE                                                             
+END-SUBROUTINE                                                         
+********************************************************************   
+DEFINE MANEJAR-MAPA2                                                   
+********************************************************************   
+SET KEY PF3 PF4                                                        
+RESET SELECCION(*) CONSOLIDACIONTXT MODO                               
+REP2. REPEAT                                                           
+  INPUT WITH TEXT CONSOLIDACIONTXT MARK POSICION USING MAP 'SGCM108B'  
+  DECIDE ON FIRST VALUE OF *PF-KEY                                     
+    VALUE 'PF3' ESCAPE BOTTOM (REP2.)                                  
+    VALUE 'PF4' PERFORM CONSOLIDAR                                     
+    NONE VALUE IGNORE                                                  
+  END-DECIDE                                                           
+END-REPEAT                                                             
+END-SUBROUTINE                                                         
+******************************************************************     
+DEFINE RESETEAR-TODO                                                   
+********************************************************************** 
+**********************************************************************
+RESET MODO ERRORTEXTO POSICION CCOK-TABLA(*) SELECCION(*) SECUENCIA   
+  EMPRESA VAL-SALIDA CV MODO INDICE CONTADOR CONSOLIDACIONTXT         
+END-SUBROUTINE                                                        
+********************************************************************* 
+DEFINE CONSOLIDAR                                                     
+********************************************************************* 
+FND1. FIND EMPRESA WITH CCOK = S-CCOK                                 
+  MOVE S-CCOA TO EMPRESA.CCOA                                         
+  MOVE S-GREC-CCO TO EMPRESA.GREC-CCO                                 
+  MOVE S-IPRC-CCO TO EMPRESA.IPRC-CCO                                 
+  UPDATE                                                              
+** WRITE 'EMPRESA.CCOA DESPUÉS DE UPDATE (PRUEBA)' EMPRESA.CCOA       
+  BACKOUT TRANSACTION                                                 
+  MOVE 'CAMBIOS CONSOLIDADOS (DE MENTIRA) CORRECTAMENTE.'             
+    TO  CONSOLIDACIONTXT                                              
+END-FIND                                                              
+END-SUBROUTINE                                                        
+**********************************************************************
+END                            
