@@ -1,4 +1,4 @@
-# 🖥️ Mainframe Database Interaction: Read and Update Utility - Version 1.0  
+# 🖥️ Mainframe Database Interaction Tool v.1.0.0 - Version 1.0  
 
 **Welcome to the Mainframe Natural Training Project**  
 This is a program developed in **Natural**, a programming language for mainframe environments. The program allows users to select and modify data from a company table (`AOCUCOTU`), using two interactive maps and simulated transactions.  
